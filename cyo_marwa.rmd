@@ -6,21 +6,25 @@ output: pdf_document
 
 ---
 ```{r setup, echo=FALSE, warning=FALSE}
+
 knitr::opts_chunk$set(echo = TRUE, fig.width=12, fig.height=8) 
+
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
-if(!require(stringr)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
 if(!require(dplyr)) install.packages("dplyr", repos= "http://cran.us.r-project.org")
-if(!require(cluster)) install.packages("cluster", repos= "http://cran.us.r-project.org")   
 # clustering algorithms
+if(!require(cluster)) install.packages("cluster", repos= "http://cran.us.r-project.org")   
 if(!require(factoextra)) install.packages("factoextra", repos="http://cran.us.r-project.org")  # clustering algorithms & visualization
-if(!require(matrixStats)) install.packages("factoextra", repos="http://cran.us.r-project.org")
+if(!require(matrixStats)) install.packages("matrixStats", repos="http://cran.us.r-project.org")
 if(!require(recommenderlab)) install.packages("recommenderlab", repos ="http://cran.us.r-project.org")
-if(!require(matrixStats)) install.packages("recommenderlab", repos ="http://cran.us.r-project.org")
+#if(!require(devtools)) install.packages("devtools")
+#devtools::install_github("kassambara/factoextra")
 
 MyData <- read.csv(file="./food_world_cup_data.csv", header=TRUE, sep=",")
 
+# Rename some columns because they have long names
 colnames(MyData)[2] <- "Knowledge"
 colnames(MyData)[3] <- "Interest"
 colnames(MyData)[44] <- "Gender"
@@ -28,10 +32,16 @@ colnames(MyData)[45] <- "Age"
 colnames(MyData)[46] <- "Income"
 colnames(MyData)[47] <- "Education"
 colnames(MyData)[48] <- "Region"
+##################################
+# preprocessing
+###################################
 
-colClean <- function(x){ colnames(x) <- gsub("Please.rate.how.much.you.like.the.traditional.cuisine.of.", " ", colnames(x));  x } 
+colClean <- function(x){ colnames(x) <- gsub("Please.rate.how.much.you.like.the.traditional.cuisine.of.", "", colnames(x));  x } 
 MyData <- colClean(MyData)
-colnames(MyData) <- str_replace(colnames(MyData),"\\.|\\Š"," ")
+#colnames(MyData) <- str_replace(colnames(MyData),"\\.|\\S","")
+
+# id is the set of numeric columns in the dataset 
+#and they represent the countries 
 id <- c(4:43)
 MyData[,id] <- lapply(MyData[,id], function(x) factor(x))
 MyData[,id] <- lapply(MyData[,id], function(x) x %>% na_if(" "))
@@ -42,7 +52,7 @@ MyData[,id] <- lapply(MyData[,id], function(x) as.numeric(as.character(x)))
 MyData[,id] <- sapply(id,num_col_with_0)
 
 MyData <- MyData %>% mutate(Age = factor(Age), Income = factor(Income), Education = factor(Education), Region = factor(Region))
-MyData$Interest <- str_replace(MyData$Interest,"\\ÃŠ","")
+MyData$Interest <- str_replace(MyData$Interest,"\\ÃS","")
 MyData <- MyData %>% mutate(Interest = factor(Interest))
 levels(MyData$Age)[levels(MyData$Age) == ""] <- "unknown"
 levels(MyData$Income)[levels(MyData$Income) == ""] <- "unknown"
@@ -78,17 +88,21 @@ The user also enters whether he is knowledgable or not about world food in gener
 a general look at the data table as imported from a csv file shows 48 columns and 1373 rows.
 
 ## Data Cleaning and Pre-processing
+
 The dataset is found in a form of a comma-separated file with many empty cells or N/As. In order to perform basic R functions, several data wrangling functions have to be applied: 
 
 ### 1. Column names cleaning
+
 The columns in the csv file had a long question asking "Please rate how much you like the traditional cuisine of (a country name) ?. Obviously we can get rid of the whole question and just preserve the country name as a column name. The following code took care of that using the user-defined function colClean:
+
 ```{r}
 colClean <- function(x){ colnames(x) <- gsub("Please.rate.how.much.you.like.the.traditional.cuisine.of.", " ", colnames(x));  x } 
 MyData <- colClean(MyData)
-colnames(MyData) <- str_replace(colnames(MyData),"\\.|\\Š"," ")
+
 ```
 
 ### 2.Replacing NAs in numeric columns with 0 
+
 All country columns which are the columns ranging from 4 to 43 are processed with a function that replaces NAs with 0 so that the column is a numeric column with range from 0 to 5.
 
 ```{r}
@@ -99,6 +113,7 @@ id <- c(4:43)
 MyData[,id] <- lapply(MyData[,id], function(x) as.numeric(as.character(x)))
 MyData[,id] <- sapply(id,num_col_with_0)
 ```
+
 ### 3. Replacing empty cells in factor columns with "Unknown"
 
 Similar to the previous step, all empty cells are filled with unknown to be treated as a separate factor or category.
@@ -112,12 +127,14 @@ levels(MyData$Education)[levels(MyData$Education) == ""] <- "unknown"
 levels(MyData$Region)[levels(MyData$Region) == ""] <- "unknown"
 levels(MyData$Gender)[levels(MyData$Gender) == ""] <- "unknown"
 ```
+
 ### 4. Removing some special characters 
 
 The second and the thrid column has some weired and additional characters the needed removal like this :
 ```{r}
 MyData$Interest <- str_replace(MyData$Interest,"\\ÃŠ","")
 ```
+
 ### 5. Transforming the Gender column into 1 and 0 numeric column
 
 The reason behind this is to make it simpler for prediction. The ratio of empty cells in this column is small (9%) so we can easily assume we can convert them to one gender. However, I didn't apply that for this dataset but learned this transformation and would apply it in future when needed.
@@ -384,6 +401,7 @@ rmse_ubcf
 ```
 
 ## Conclusion
+
 The challenges that this dataset pose have been expressed by detail. A  simple model within the time limit have been developed to understand the taste of each respondent in the survey and a model can now predict what to suggest to users in future. This was achieved with good accuracy.
 
 In future, the project should include further investigations on how to impute the empty categories to improve the quality of the dataset. I will spend more time to achieve that because this is a very important skill for a data scientist. Another imrovement is to use an ensemble method with knn and rf together for example in order to get higher accuracy.
